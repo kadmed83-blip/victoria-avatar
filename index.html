@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Rémy - Test TalkingHead</title>
+
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            background: #202020;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #avatar {
+            width: 100%;
+            height: 85%;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        #speak {
+            padding: 14px 25px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        #loading {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 18px;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js/+esm",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+            "talkinghead": "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/modules/talkinghead.mjs"
+        }
+    }
+    </script>
+
+</head>
+
+<body>
+
+<div id="avatar"></div>
+
+<div id="loading">
+    Chargement de Rémy...
+</div>
+
+<div id="controls">
+    <button id="speak">▶️ Faire parler Rémy</button>
+</div>
+
+<script type="module">
+
+import { TalkingHead } from "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/modules/talkinghead.mjs";
+import { HeadAudio } from "./HeadAudio-main/modules/headaudio.mjs";
+
+let head;
+window.head = null;
+
+document.addEventListener("DOMContentLoaded", async function () {
+
+    const nodeAvatar = document.getElementById("avatar");
+    const nodeLoading = document.getElementById("loading");
+
+   head = new TalkingHead(nodeAvatar, {
+    ttsEndpoint: "",
+    cameraView: "upper",
+    lipsyncLang: "fr"
+});
+window.head = head;
+await head.audioCtx.audioWorklet.addModule("./HeadAudio-main/modules/headworklet.mjs");
+const headaudio = new HeadAudio(head.audioCtx, {
+    processorOptions: {},
+    parameterData: {
+        vadGateActiveDb: -40,
+        vadGateInactiveDb: -60
+    }
+});
+
+await headaudio.loadModel("./HeadAudio-main/dist/model-en-mixed.bin");
+head.audioSpeechGainNode.connect(headaudio);
+headaudio.onvalue = (key, value) => {
+    Object.assign(head.mtAvatar[key], {
+        newvalue: value,
+        needsUpdate: true
+    });
+};
+
+head.opt.update = headaudio.update.bind(headaudio);
+    try {
+
+        await head.showAvatar({
+
+            url: "./avatars/avaturn.glb",
+
+            avatarMood: "neutral",
+
+            lipsyncLang: "en"
+
+        }, function (ev) {
+
+            if (ev.lengthComputable) {
+
+                const val = Math.min(
+                    100,
+                    Math.round(ev.loaded / ev.total * 100)
+                );
+
+                nodeLoading.textContent =
+                    "Chargement de Rémy : " + val + "%";
+            }
+
+        });
+
+        nodeLoading.style.display = "none";
+
+        console.log("RÉMY EST CHARGÉ");
+
+    } catch (error) {
+
+        console.error("ERREUR AVATAR :", error);
+
+        nodeLoading.textContent =
+            "Erreur : " + error.toString();
+    }
+
+
+   
+    document.getElementById("speak").addEventListener("click", async function () {
+        await head.audioCtx.resume();
+        console.log("AudioContext activé :", head.audioCtx.state);
+
+        const message = await fetch("http://127.0.0.1:8000/next-text").then(r => r.json());
+if (!message.text) return;
+console.log("Victoria va parler :", message.text);
+console.log("Texte reçu :", message.text);
+
+    console.log("Bouton Victoria cliqué");
+
+    try {
+        const response = await fetch("/tts", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                text: message.text
+            })
+        });
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        const audioArrayBuffer = await audioBlob.arrayBuffer();
+
+const audioBuffer = await head.audioCtx.decodeAudioData(audioArrayBuffer);
+console.log("AudioBuffer :", audioBuffer.duration, audioBuffer.sampleRate, audioBuffer.numberOfChannels);
+await head.speakAudio({
+    audio: audioBuffer
+}, {
+    lipsyncLang: "fr"
+});
+
+    } catch (error) {
+        console.error("ERREUR VOIX :", error);
+    }
+
+});
+
+    // Surveillance automatique des messages de n8n
+    setInterval(async function () {
+        try {if (head.audioCtx.state !== "running") return;
+            const message = await fetch("http://127.0.0.1:8000/next-text")
+                .then(response => response.json());
+
+            if (!message.text) return;
+
+            console.log("Victoria va parler automatiquement :", message.text);
+
+            const response = await fetch("/tts", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    text: message.text
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error("Erreur TTS : " + response.status);
+            }
+
+            const audioBlob = await response.blob();
+            const audioArrayBuffer = await audioBlob.arrayBuffer();
+            const audioBuffer = await head.audioCtx.decodeAudioData(audioArrayBuffer);
+
+            await head.speakAudio({
+                audio: audioBuffer
+            }, {
+                lipsyncLang: "fr"
+            });
+
+        } catch (error) {
+            console.error("Erreur de lecture automatique :", error);
+        }
+    }, 1500);
+});
+
+</script>
+
+</body>
+</html>
