@@ -73,7 +73,7 @@
 <script type="module">
 
 import { TalkingHead } from "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/modules/talkinghead.mjs";
-import { HeadAudio } from "./HeadAudio-main/modules/headaudio.mjs";
+import { HeadAudio } from "./modules/headaudio.mjs";
 
 let head;
 window.head = null;
@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     lipsyncLang: "fr"
 });
 window.head = head;
-await head.audioCtx.audioWorklet.addModule("./HeadAudio-main/modules/headworklet.mjs");
+await head.audioCtx.audioWorklet.addModule("./modules/headworklet.mjs");
 const headaudio = new HeadAudio(head.audioCtx, {
     processorOptions: {},
     parameterData: {
@@ -98,7 +98,7 @@ const headaudio = new HeadAudio(head.audioCtx, {
     }
 });
 
-await headaudio.loadModel("./HeadAudio-main/dist/model-en-mixed.bin");
+await headaudio.loadModel("./dist/model-en-mixed.bin");
 head.audioSpeechGainNode.connect(headaudio);
 headaudio.onvalue = (key, value) => {
     Object.assign(head.mtAvatar[key], {
@@ -112,7 +112,7 @@ head.opt.update = headaudio.update.bind(headaudio);
 
         await head.showAvatar({
 
-            url: "./avatars/avaturn.glb",
+            url: "./avaturn.glb",
 
             avatarMood: "neutral",
 
@@ -151,7 +151,7 @@ head.opt.update = headaudio.update.bind(headaudio);
         await head.audioCtx.resume();
         console.log("AudioContext activé :", head.audioCtx.state);
 
-        const message = await fetch("http://127.0.0.1:8000/next-text").then(r => r.json());
+        const message = await fetch("https://victoria-tts.onrender.com/next-text").then(r => r.json());
 if (!message.text) return;
 console.log("Victoria va parler :", message.text);
 console.log("Texte reçu :", message.text);
@@ -159,7 +159,7 @@ console.log("Texte reçu :", message.text);
     console.log("Bouton Victoria cliqué");
 
     try {
-        const response = await fetch("/tts", {
+        const response = await fetch("https://victoria-tts.onrender.com/tts", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -191,14 +191,14 @@ await head.speakAudio({
     // Surveillance automatique des messages de n8n
     setInterval(async function () {
         try {if (head.audioCtx.state !== "running") return;
-            const message = await fetch("http://127.0.0.1:8000/next-text")
+            const message = await fetch("https://victoria-tts.onrender.com/next-text")
                 .then(response => response.json());
 
             if (!message.text) return;
 
             console.log("Victoria va parler automatiquement :", message.text);
 
-            const response = await fetch("/tts", {
+            const response = await fetch("https://victoria-tts.onrender.com/tts", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
