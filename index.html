@@ -189,6 +189,93 @@ await head.speakAudio({
 
 });
 
+    // Bouton pour parler à Victoria depuis le téléphone
+    document.getElementById("voiceCall").addEventListener("click", async function () {
+        const button = this;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            alert("La reconnaissance vocale n'est pas disponible dans ce navigateur. Essaie avec Chrome.");
+            return;
+        }
+
+        try {
+            await head.audioCtx.resume();
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = "fr-FR";
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            button.textContent = "🎙️ Je t'écoute…";
+            recognition.start();
+
+            recognition.onresult = async function (event) {
+                const userText = event.results[0][0].transcript;
+                button.textContent = "⏳ Victoria réfléchit…";
+                console.log("Message reconnu :", userText);
+
+                try {
+                    const response = await fetch("https://kadar2026.app.n8n.cloud/webhook/victoria-voice", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            text: userText,
+                            sessionId: "victoria-kadar"
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Erreur webhook : " + response.status);
+                    }
+
+                    const data = await response.json();
+                    if (!data.text) throw new Error("Victoria n'a renvoyé aucune réponse.");
+
+                    console.log("Réponse de Victoria :", data.text);
+
+                    const audioResponse = await fetch("https://victoria-tts.onrender.com/tts", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: data.text })
+                    });
+
+                    if (!audioResponse.ok) {
+                        throw new Error("Erreur voix : " + audioResponse.status);
+                    }
+
+                    const audioBuffer = await head.audioCtx.decodeAudioData(
+                        await audioResponse.arrayBuffer()
+                    );
+
+                    await head.speakAudio({ audio: audioBuffer }, { lipsyncLang: "fr" });
+                    button.textContent = "🎙️ Parler à Victoria";
+                } catch (error) {
+                    console.error("Erreur Victoria :", error);
+                    button.textContent = "🎙️ Parler à Victoria";
+                    alert("Erreur : " + error.message);
+                }
+            };
+
+            recognition.onerror = function (event) {
+                console.error("Erreur micro :", event.error);
+                button.textContent = "🎙️ Parler à Victoria";
+                if (event.error !== "no-speech") {
+                    alert("Problème de micro : " + event.error);
+                }
+            };
+
+            recognition.onend = function () {
+                if (button.textContent === "🎙️ Je t'écoute…") {
+                    button.textContent = "🎙️ Parler à Victoria";
+                }
+            };
+        } catch (error) {
+            console.error(error);
+            button.textContent = "🎙️ Parler à Victoria";
+            alert("Impossible d'activer le son : " + error.message);
+        }
+    });
+
     // Surveillance automatique des messages de n8n
     setInterval(async function () {
         try {if (head.audioCtx.state !== "running") return;
