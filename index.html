@@ -326,13 +326,13 @@ await head.speakAudio({
             voiceButton.textContent = "🎙️ Je t'écoute…";
             recognition.start();
 
-        } catch (error) {
+               } catch (error) {
             console.error("Erreur de reconnaissance :", error);
             conversationActive = false;
             voiceButton.textContent = "🎙️ Parler à Victoria";
             alert("Impossible de démarrer le micro : " + error.message);
         }
-    });
+    }
 
 
     // Surveillance automatique des messages de n8n
