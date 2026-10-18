@@ -255,14 +255,29 @@ await head.speakAudio({
                         }
                     );
 
+                    
+                    const responseBody = await response.text();
+
                     if (!response.ok) {
-                        throw new Error("Erreur webhook : " + response.status);
+                        console.error("Erreur webhook n8n :", response.status, responseBody);
+                        throw new Error(
+                            "Erreur webhook : " + response.status +
+                            " — " + responseBody.slice(0, 500)
+                        );
                     }
 
-                    const data = await response.json();
+                    let data;
+                    try {
+                        data = JSON.parse(responseBody);
+                    } catch (error) {
+                        console.error("Réponse n8n non JSON :", responseBody);
+                        throw new Error("La réponse du webhook n'est pas du JSON valide.");
+                    }
+
                     if (!data.text) {
                         throw new Error("Victoria n'a renvoyé aucune réponse.");
                     }
+
 
                     console.log("Réponse de Victoria :", data.text);
 
