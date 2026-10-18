@@ -335,44 +335,69 @@ await head.speakAudio({
     }
 
 
+   
     // Surveillance automatique des messages de n8n
-    setInterval(async function () {
-        try {if (head.audioCtx.state !== "running") return;
-            const message = await fetch("https://victoria-tts.onrender.com/next-text")
-                .then(response => response.json());
+    // Une seule vérification à la fois
+    let autoSpeechBusy = false;
 
-            if (!message.text) return;
+    async function surveillerMessages() {
+        if (autoSpeechBusy) {
+            setTimeout(surveillerMessages, 1000);
+            return;
+        }
 
-            console.log("Victoria va parler automatiquement :", message.text);
+        try {
+            if (head && head.audioCtx.state === "running") {
+                autoSpeechBusy = true;
 
-            const response = await fetch("https://victoria-tts.onrender.com/tts", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    text: message.text
-                })
-            });
+                const result = await fetch(
+                    "https://victoria-tts.onrender.com/next-text"
+                );
 
-            if (!response.ok) {
-                throw new Error("Erreur TTS : " + response.status);
+                if (!result.ok) {
+                    throw new Error("Erreur /next-text : " + result.status);
+                }
+
+                const message = await result.json();
+
+                if (message.text) {
+                    console.log("Victoria va parler automatiquement :", message.text);
+
+                    const response = await fetch(
+                        "https://victoria-tts.onrender.com/tts",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({ text: message.text })
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error("Erreur TTS : " + response.status);
+                    }
+
+                    const audioBuffer = await head.audioCtx.decodeAudioData(
+                        await response.arrayBuffer()
+                    );
+
+                    await head.speakAudio(
+                        { audio: audioBuffer },
+                        { lipsyncLang: "fr" }
+                    );
+                }
             }
-
-            const audioBlob = await response.blob();
-            const audioArrayBuffer = await audioBlob.arrayBuffer();
-            const audioBuffer = await head.audioCtx.decodeAudioData(audioArrayBuffer);
-
-            await head.speakAudio({
-                audio: audioBuffer
-            }, {
-                lipsyncLang: "fr"
-            });
-
         } catch (error) {
             console.error("Erreur de lecture automatique :", error);
+        } finally {
+            autoSpeechBusy = false;
+            setTimeout(surveillerMessages, 700);
         }
-    }, 1500);
+    }
+
+    setTimeout(surveillerMessages, 1000);
+
 });
 
 </script>
