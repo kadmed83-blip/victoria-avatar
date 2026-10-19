@@ -281,28 +281,23 @@ await head.speakAudio({
 
                     console.log("Réponse de Victoria :", data.text);
 
-                    const audioResponse = await fetch(
-                        "https://victoria-tts.onrender.com/tts",
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ text: data.text })
-                        }
-                    );
+                    
+                    // Voix native du navigateur : pas d'attente de Render
+                    window.speechSynthesis.cancel();
 
-                    if (!audioResponse.ok) {
-                        throw new Error("Erreur voix : " + audioResponse.status);
-                    }
+                    await new Promise((resolve, reject) => {
+                        const utterance = new SpeechSynthesisUtterance(data.text);
+                        utterance.lang = "fr-FR";
+                        utterance.rate = 1;
+                        utterance.pitch = 1;
 
-                    const audioBuffer = await head.audioCtx.decodeAudioData(
-                        await audioResponse.arrayBuffer()
-                    );
+                        utterance.onend = resolve;
+                        utterance.onerror = (event) => {
+                            reject(new Error("Erreur de synthèse vocale : " + event.error));
+                        };
 
-                    // Attendre la fin de la réponse parlée
-                    await head.speakAudio(
-                        { audio: audioBuffer },
-                        { lipsyncLang: "fr" }
-                    );
+                        window.speechSynthesis.speak(utterance);
+                    });
 
                 } catch (error) {
                     console.error("Erreur Victoria :", error);
