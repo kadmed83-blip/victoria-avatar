@@ -316,6 +316,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     }
 
                     console.log("Réponse de Victoria :", data.text);
+                    console.log("DIAGNOSTIC : réponse reçue à", new Date().toLocaleTimeString());
 
                     // Synthèse vocale locale : ne passe pas par Render
                     const debutVoix = performance.now();
@@ -392,7 +393,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                                 )
                             );
                         };
-
+console.log("DIAGNOSTIC : envoi à la voix à", new Date().toLocaleTimeString());
                         window.speechSynthesis.speak(utterance);
                         window.speechSynthesis.resume();
                     });
