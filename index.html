@@ -316,16 +316,18 @@ document.addEventListener("DOMContentLoaded", async function () {
                     }
 
                     console.log("Réponse de Victoria :", data.text);
-                    console.log("DIAGNOSTIC : réponse reçue à", new Date().toLocaleTimeString());
+                    console.log(
+                        "DIAGNOSTIC : réponse reçue à",
+                        new Date().toLocaleTimeString()
+                    );
 
-                    // Synthèse vocale locale : ne passe pas par Render
+                    // Voix locale du navigateur : pas de requête TTS à Render
                     const debutVoix = performance.now();
 
-                    // Arrêter toute ancienne lecture en attente
                     window.speechSynthesis.cancel();
                     window.speechSynthesis.resume();
 
-                    // Sélectionner explicitement Microsoft Hortense
+                    // Sélection de Microsoft Hortense
                     const voices = window.speechSynthesis.getVoices();
 
                     const frenchVoice =
@@ -393,7 +395,12 @@ document.addEventListener("DOMContentLoaded", async function () {
                                 )
                             );
                         };
-console.log("DIAGNOSTIC : envoi à la voix à", new Date().toLocaleTimeString());
+
+                        console.log(
+                            "DIAGNOSTIC : envoi à la voix à",
+                            new Date().toLocaleTimeString()
+                        );
+
                         window.speechSynthesis.speak(utterance);
                         window.speechSynthesis.resume();
                     });
