@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -55,7 +56,6 @@
         }
     }
     </script>
-
 </head>
 
 <body>
@@ -68,7 +68,7 @@
 
 <div id="controls">
     <button id="speak">▶️ Faire parler Rémy</button>
-<button id="voiceCall">🎙️ Parler à Victoria</button>
+    <button id="voiceCall">🎙️ Parler à Victoria</button>
 </div>
 
 <script type="module">
@@ -84,50 +84,47 @@ document.addEventListener("DOMContentLoaded", async function () {
     const nodeAvatar = document.getElementById("avatar");
     const nodeLoading = document.getElementById("loading");
 
-   head = new TalkingHead(nodeAvatar, {
-    ttsEndpoint: "",
-    cameraView: "upper",
-    lipsyncLang: "fr"
-});
-window.head = head;
-await head.audioCtx.audioWorklet.addModule("./modules/headworklet.mjs");
-const headaudio = new HeadAudio(head.audioCtx, {
-    processorOptions: {},
-    parameterData: {
-        vadGateActiveDb: -40,
-        vadGateInactiveDb: -60
-    }
-});
-
-await headaudio.loadModel("./dist/model-en-mixed.bin");
-head.audioSpeechGainNode.connect(headaudio);
-headaudio.onvalue = (key, value) => {
-    Object.assign(head.mtAvatar[key], {
-        newvalue: value,
-        needsUpdate: true
+    head = new TalkingHead(nodeAvatar, {
+        ttsEndpoint: "",
+        cameraView: "upper",
+        lipsyncLang: "fr"
     });
-};
 
-head.opt.update = headaudio.update.bind(headaudio);
+    window.head = head;
+
+    await head.audioCtx.audioWorklet.addModule("./modules/headworklet.mjs");
+
+    const headaudio = new HeadAudio(head.audioCtx, {
+        processorOptions: {},
+        parameterData: {
+            vadGateActiveDb: -40,
+            vadGateInactiveDb: -60
+        }
+    });
+
+    await headaudio.loadModel("./dist/model-en-mixed.bin");
+    head.audioSpeechGainNode.connect(headaudio);
+
+    headaudio.onvalue = (key, value) => {
+        Object.assign(head.mtAvatar[key], {
+            newvalue: value,
+            needsUpdate: true
+        });
+    };
+
+    head.opt.update = headaudio.update.bind(headaudio);
+
     try {
-
         await head.showAvatar({
-
- url: "./avaturn.glb",
-
-avatarMood: "neutral",
-
-lipsyncLang: "en",
-
-avatarListeningEyeContact: 1,
-avatarSpeakingEyeContact: 1,
-avatarIgnoreCamera: false,
-avatarSpeakingHeadMove: 0.2
-
+            url: "./avaturn.glb",
+            avatarMood: "neutral",
+            lipsyncLang: "en",
+            avatarListeningEyeContact: 1,
+            avatarSpeakingEyeContact: 1,
+            avatarIgnoreCamera: false,
+            avatarSpeakingHeadMove: 0.2
         }, function (ev) {
-
             if (ev.lengthComputable) {
-
                 const val = Math.min(
                     100,
                     Math.round(ev.loaded / ev.total * 100)
@@ -136,68 +133,81 @@ avatarSpeakingHeadMove: 0.2
                 nodeLoading.textContent =
                     "Chargement de Rémy : " + val + "%";
             }
-
         });
 
         nodeLoading.style.display = "none";
-
         console.log("RÉMY EST CHARGÉ");
 
     } catch (error) {
-
         console.error("ERREUR AVATAR :", error);
-
-        nodeLoading.textContent =
-            "Erreur : " + error.toString();
+        nodeLoading.textContent = "Erreur : " + error.toString();
     }
 
-
-   
+    // Bouton de lecture via Render : conservé
     document.getElementById("speak").addEventListener("click", async function () {
         await head.audioCtx.resume();
         console.log("AudioContext activé :", head.audioCtx.state);
 
-        const message = await fetch("https://victoria-tts.onrender.com/next-text").then(r => r.json());
-if (!message.text) return;
-console.log("Victoria va parler :", message.text);
-console.log("Texte reçu :", message.text);
+        const message = await fetch(
+            "https://victoria-tts.onrender.com/next-text"
+        ).then(r => r.json());
 
-    console.log("Bouton Victoria cliqué");
+        if (!message.text) return;
 
-    try {
-        const response = await fetch("https://victoria-tts.onrender.com/tts", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                text: message.text
-            })
-        });
+        console.log("Victoria va parler :", message.text);
+        console.log("Texte reçu :", message.text);
+        console.log("Bouton Victoria cliqué");
 
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
+        try {
+            const response = await fetch(
+                "https://victoria-tts.onrender.com/tts",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        text: message.text
+                    })
+                }
+            );
 
-        const audioArrayBuffer = await audioBlob.arrayBuffer();
+            if (!response.ok) {
+                throw new Error("Erreur TTS : " + response.status);
+            }
 
-const audioBuffer = await head.audioCtx.decodeAudioData(audioArrayBuffer);
-console.log("AudioBuffer :", audioBuffer.duration, audioBuffer.sampleRate, audioBuffer.numberOfChannels);
-await head.speakAudio({
-    audio: audioBuffer
-}, {
-    lipsyncLang: "fr"
-});
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
 
-    } catch (error) {
-        console.error("ERREUR VOIX :", error);
-    }
+            const audioArrayBuffer = await audioBlob.arrayBuffer();
+            const audioBuffer = await head.audioCtx.decodeAudioData(
+                audioArrayBuffer
+            );
 
-});
+            console.log(
+                "AudioBuffer :",
+                audioBuffer.duration,
+                audioBuffer.sampleRate,
+                audioBuffer.numberOfChannels
+            );
 
-    
-    // Bouton pour parler à Victoria depuis le téléphone
+            await head.speakAudio({
+                audio: audioBuffer
+            }, {
+                lipsyncLang: "fr"
+            });
+
+            URL.revokeObjectURL(audioUrl);
+
+        } catch (error) {
+            console.error("ERREUR VOIX :", error);
+        }
+    });
+
+    // Conversation vocale avec Victoria
     const voiceButton = document.getElementById("voiceCall");
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
 
     let conversationActive = false;
     let recognition = null;
@@ -209,12 +219,16 @@ await head.speakAudio({
             return;
         }
 
-        // Un deuxième clic arrête la conversation
         if (conversationActive) {
             conversationActive = false;
+
             if (recognition) {
-                try { recognition.stop(); } catch (e) {}
+                try {
+                    recognition.stop();
+                } catch (e) {}
             }
+
+            window.speechSynthesis.cancel();
             voiceButton.textContent = "🎙️ Parler à Victoria";
             return;
         }
@@ -225,6 +239,7 @@ await head.speakAudio({
         try {
             await head.audioCtx.resume();
             startListening();
+
         } catch (error) {
             conversationActive = false;
             voiceButton.textContent = "🎙️ Parler à Victoria";
@@ -243,8 +258,10 @@ await head.speakAudio({
 
             recognition.onresult = async function (event) {
                 const userText = event.results[0][0].transcript;
+
                 waitingForVictoria = true;
                 voiceButton.textContent = "⏳ Victoria réfléchit…";
+
                 console.log("Message reconnu :", userText);
 
                 try {
@@ -252,7 +269,9 @@ await head.speakAudio({
                         "https://kadaria-2027.app.n8n.cloud/webhook/victoria-voice",
                         {
                             method: "POST",
-                            headers: { "Content-Type": "application/json" },
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
                             body: JSON.stringify({
                                 text: userText,
                                 sessionId: "victoria-kadar"
@@ -260,11 +279,15 @@ await head.speakAudio({
                         }
                     );
 
-                    
                     const responseBody = await response.text();
 
                     if (!response.ok) {
-                        console.error("Erreur webhook n8n :", response.status, responseBody);
+                        console.error(
+                            "Erreur webhook n8n :",
+                            response.status,
+                            responseBody
+                        );
+
                         throw new Error(
                             "Erreur webhook : " + response.status +
                             " — " + responseBody.slice(0, 500)
@@ -272,43 +295,115 @@ await head.speakAudio({
                     }
 
                     let data;
+
                     try {
                         data = JSON.parse(responseBody);
                     } catch (error) {
-                        console.error("Réponse n8n non JSON :", responseBody);
-                        throw new Error("La réponse du webhook n'est pas du JSON valide.");
+                        console.error(
+                            "Réponse n8n non JSON :",
+                            responseBody
+                        );
+
+                        throw new Error(
+                            "La réponse du webhook n'est pas du JSON valide."
+                        );
                     }
 
                     if (!data.text) {
-                        throw new Error("Victoria n'a renvoyé aucune réponse.");
+                        throw new Error(
+                            "Victoria n'a renvoyé aucune réponse."
+                        );
                     }
-
 
                     console.log("Réponse de Victoria :", data.text);
 
-                    
-                    // Voix native du navigateur : pas d'attente de Render
+                    // Synthèse vocale locale : ne passe pas par Render
+                    const debutVoix = performance.now();
+
+                    // Arrêter toute ancienne lecture en attente
                     window.speechSynthesis.cancel();
+                    window.speechSynthesis.resume();
+
+                    // Sélectionner explicitement Microsoft Hortense
+                    const voices = window.speechSynthesis.getVoices();
+
+                    const frenchVoice =
+                        voices.find(v =>
+                            v.name.includes("Microsoft Hortense") &&
+                            v.lang === "fr-FR" &&
+                            v.localService
+                        ) ||
+                        voices.find(v =>
+                            v.lang === "fr-FR" &&
+                            v.localService
+                        );
+
+                    if (frenchVoice) {
+                        console.log(
+                            "Voix locale sélectionnée :",
+                            frenchVoice.name,
+                            frenchVoice.lang
+                        );
+                    } else {
+                        console.warn(
+                            "Aucune voix française locale trouvée ; " +
+                            "Chrome utilisera sa voix par défaut."
+                        );
+                    }
+
+                    // Laisser Chrome terminer l'annulation précédente
+                    await new Promise(resolve => setTimeout(resolve, 100));
 
                     await new Promise((resolve, reject) => {
-                        const utterance = new SpeechSynthesisUtterance(data.text);
+                        const utterance =
+                            new SpeechSynthesisUtterance(data.text);
+
                         utterance.lang = "fr-FR";
                         utterance.rate = 1;
                         utterance.pitch = 1;
 
-                        utterance.onend = resolve;
-                        utterance.onerror = (event) => {
-                            reject(new Error("Erreur de synthèse vocale : " + event.error));
+                        if (frenchVoice) {
+                            utterance.voice = frenchVoice;
+                        }
+
+                        utterance.onstart = function () {
+                            console.log(
+                                "DÉBUT DE LA VOIX après réception :",
+                                ((performance.now() - debutVoix) / 1000).toFixed(2),
+                                "secondes"
+                            );
+                        };
+
+                        utterance.onend = function () {
+                            console.log("Fin de la voix de Victoria.");
+                            resolve();
+                        };
+
+                        utterance.onerror = function (event) {
+                            console.error(
+                                "Erreur synthèse vocale :",
+                                event.error
+                            );
+
+                            reject(
+                                new Error(
+                                    "Erreur de synthèse vocale : " +
+                                    event.error
+                                )
+                            );
                         };
 
                         window.speechSynthesis.speak(utterance);
+                        window.speechSynthesis.resume();
                     });
 
                 } catch (error) {
                     console.error("Erreur Victoria :", error);
+
                     if (conversationActive) {
                         alert("Erreur : " + error.message);
                     }
+
                 } finally {
                     waitingForVictoria = false;
 
@@ -324,15 +419,18 @@ await head.speakAudio({
             recognition.onerror = function (event) {
                 console.error("Erreur micro :", event.error);
 
-                if (event.error !== "no-speech" && conversationActive) {
+                if (
+                    event.error !== "no-speech" &&
+                    conversationActive
+                ) {
                     conversationActive = false;
                     voiceButton.textContent = "🎙️ Parler à Victoria";
+
                     alert("Problème de micro : " + event.error);
                 }
             };
 
             recognition.onend = function () {
-                // Si aucune phrase n'a été reconnue, reprendre l'écoute
                 if (conversationActive && !waitingForVictoria) {
                     setTimeout(startListening, 700);
                 }
@@ -341,18 +439,17 @@ await head.speakAudio({
             voiceButton.textContent = "🎙️ Je t'écoute…";
             recognition.start();
 
-               } catch (error) {
+        } catch (error) {
             console.error("Erreur de reconnaissance :", error);
+
             conversationActive = false;
             voiceButton.textContent = "🎙️ Parler à Victoria";
+
             alert("Impossible de démarrer le micro : " + error.message);
         }
     }
 
-
-   
-    // Surveillance automatique des messages de n8n
-    // Une seule vérification à la fois
+    // Surveillance automatique des messages : conservée
     let autoSpeechBusy = false;
 
     async function surveillerMessages() {
@@ -370,13 +467,18 @@ await head.speakAudio({
                 );
 
                 if (!result.ok) {
-                    throw new Error("Erreur /next-text : " + result.status);
+                    throw new Error(
+                        "Erreur /next-text : " + result.status
+                    );
                 }
 
                 const message = await result.json();
 
                 if (message.text) {
-                    console.log("Victoria va parler automatiquement :", message.text);
+                    console.log(
+                        "Victoria va parler automatiquement :",
+                        message.text
+                    );
 
                     const response = await fetch(
                         "https://victoria-tts.onrender.com/tts",
@@ -385,17 +487,22 @@ await head.speakAudio({
                             headers: {
                                 "Content-Type": "application/json"
                             },
-                            body: JSON.stringify({ text: message.text })
+                            body: JSON.stringify({
+                                text: message.text
+                            })
                         }
                     );
 
                     if (!response.ok) {
-                        throw new Error("Erreur TTS : " + response.status);
+                        throw new Error(
+                            "Erreur TTS : " + response.status
+                        );
                     }
 
-                    const audioBuffer = await head.audioCtx.decodeAudioData(
-                        await response.arrayBuffer()
-                    );
+                    const audioBuffer =
+                        await head.audioCtx.decodeAudioData(
+                            await response.arrayBuffer()
+                        );
 
                     await head.speakAudio(
                         { audio: audioBuffer },
@@ -403,8 +510,13 @@ await head.speakAudio({
                     );
                 }
             }
+
         } catch (error) {
-            console.error("Erreur de lecture automatique :", error);
+            console.error(
+                "Erreur de lecture automatique :",
+                error
+            );
+
         } finally {
             autoSpeechBusy = false;
             setTimeout(surveillerMessages, 700);
