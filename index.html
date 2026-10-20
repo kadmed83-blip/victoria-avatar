@@ -113,11 +113,16 @@ head.opt.update = headaudio.update.bind(headaudio);
 
         await head.showAvatar({
 
-            url: "./avaturn.glb",
+ url: "./avaturn.glb",
 
-            avatarMood: "neutral",
+avatarMood: "neutral",
 
-            lipsyncLang: "en"
+lipsyncLang: "en",
+
+avatarListeningEyeContact: 1,
+avatarSpeakingEyeContact: 1,
+avatarIgnoreCamera: false,
+avatarSpeakingHeadMove: 0.2
 
         }, function (ev) {
 
